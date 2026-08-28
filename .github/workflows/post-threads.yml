@@ -1,0 +1,50 @@
+name: Post to Threads
+
+on:
+  schedule:
+    # JST 9:00/12:00/15:00/18:00/21:00 = UTC 0:00/3:00/6:00/9:00/12:00
+    - cron: "0 0 * * *"
+    - cron: "0 3 * * *"
+    - cron: "0 6 * * *"
+    - cron: "0 9 * * *"
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    inputs:
+      time_slot:
+        description: "手動実行時の投稿枠(例: 09:00)"
+        required: true
+        default: "09:00"
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install deps
+        run: pip install requests
+
+      - name: determine time slot
+        id: slot
+        run: |
+          if [ -n "${{ github.event.inputs.time_slot }}" ]; then
+            echo "time=${{ github.event.inputs.time_slot }}" >> "$GITHUB_OUTPUT"
+          else
+            case "${{ github.event.schedule }}" in
+              "0 0 * * *") echo "time=09:00" >> "$GITHUB_OUTPUT" ;;
+              "0 3 * * *") echo "time=12:00" >> "$GITHUB_OUTPUT" ;;
+              "0 6 * * *") echo "time=15:00" >> "$GITHUB_OUTPUT" ;;
+              "0 9 * * *") echo "time=18:00" >> "$GITHUB_OUTPUT" ;;
+              "0 12 * * *") echo "time=21:00" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+      - name: post to threads
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+        run: python scripts/post_threads_slot.py --time "${{ steps.slot.outputs.time }}"
