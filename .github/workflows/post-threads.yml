@@ -3,11 +3,13 @@ name: Post to Threads
 on:
   schedule:
     # JST 9:00/12:00/15:00/18:00/21:00 = UTC 0:00/3:00/6:00/9:00/12:00
-    - cron: "0 0 * * *"
-    - cron: "0 3 * * *"
-    - cron: "0 6 * * *"
-    - cron: "0 9 * * *"
-    - cron: "0 12 * * *"
+    # ちょうど毎時0分はGitHub側で最も混み合う時間帯で、遅延・スキップされやすいため
+    # 数分ずらしている(2026-08-30確定、実際に数時間の遅延や欠落が発生したための対策)
+    - cron: "7 0 * * *"
+    - cron: "7 3 * * *"
+    - cron: "7 6 * * *"
+    - cron: "7 9 * * *"
+    - cron: "7 12 * * *"
   workflow_dispatch:
     inputs:
       time_slot:
@@ -35,11 +37,11 @@ jobs:
             echo "time=${{ github.event.inputs.time_slot }}" >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.schedule }}" in
-              "0 0 * * *") echo "time=09:00" >> "$GITHUB_OUTPUT" ;;
-              "0 3 * * *") echo "time=12:00" >> "$GITHUB_OUTPUT" ;;
-              "0 6 * * *") echo "time=15:00" >> "$GITHUB_OUTPUT" ;;
-              "0 9 * * *") echo "time=18:00" >> "$GITHUB_OUTPUT" ;;
-              "0 12 * * *") echo "time=21:00" >> "$GITHUB_OUTPUT" ;;
+              "7 0 * * *") echo "time=09:00" >> "$GITHUB_OUTPUT" ;;
+              "7 3 * * *") echo "time=12:00" >> "$GITHUB_OUTPUT" ;;
+              "7 6 * * *") echo "time=15:00" >> "$GITHUB_OUTPUT" ;;
+              "7 9 * * *") echo "time=18:00" >> "$GITHUB_OUTPUT" ;;
+              "7 12 * * *") echo "time=21:00" >> "$GITHUB_OUTPUT" ;;
             esac
           fi
 
