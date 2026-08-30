@@ -2,20 +2,19 @@ name: Post to Threads
 
 on:
   schedule:
-    # JST 9:00/12:00/15:00/18:00/21:00 = UTC 0:00/3:00/6:00/9:00/12:00
-    # ちょうど毎時0分はGitHub側で最も混み合う時間帯で、遅延・スキップされやすいため
-    # 数分ずらしている(2026-08-30確定、実際に数時間の遅延や欠落が発生したための対策)
-    - cron: "7 0 * * *"
-    - cron: "7 3 * * *"
-    - cron: "7 6 * * *"
-    - cron: "7 9 * * *"
-    - cron: "7 12 * * *"
+    # 巡回モード(2026-08-30後半確定): 単発cron(枠ごとに1回だけ)だと、GitHub Actions側の
+    # 高負荷でtickそのものが間引かれた場合に、その回が丸ごと欠落する事故が起きた
+    # (実例: 2026-08-30、18:00枠・21:00枠が2回とも一度もトリガーされず欠落)。
+    # そのため、JST 9:00〜21:52の間、15分おきに巡回実行し、スクリプト側(post_threads_slot.py、
+    # --time省略時)が「現在時刻までに到達していて、まだposted_logに無い枠」を都度拾って
+    # 投稿する形にした。毎時ちょうどは混雑しやすいため、分は0/15/30/45からずらしている。
+    - cron: "7,22,37,52 0-12 * * *"
   workflow_dispatch:
     inputs:
       time_slot:
-        description: "手動実行時の投稿枠(例: 09:00)"
-        required: true
-        default: "09:00"
+        description: "手動実行時の投稿枠(例: 09:00)。空欄なら巡回モード(未投稿の枠を全部拾う)"
+        required: false
+        default: ""
 
 jobs:
   post:
@@ -32,26 +31,16 @@ jobs:
       - name: install deps
         run: pip install requests
 
-      - name: determine time slot
-        id: slot
-        run: |
-          if [ -n "${{ github.event.inputs.time_slot }}" ]; then
-            echo "time=${{ github.event.inputs.time_slot }}" >> "$GITHUB_OUTPUT"
-          else
-            case "${{ github.event.schedule }}" in
-              "7 0 * * *") echo "time=09:00" >> "$GITHUB_OUTPUT" ;;
-              "7 3 * * *") echo "time=12:00" >> "$GITHUB_OUTPUT" ;;
-              "7 6 * * *") echo "time=15:00" >> "$GITHUB_OUTPUT" ;;
-              "7 9 * * *") echo "time=18:00" >> "$GITHUB_OUTPUT" ;;
-              "7 12 * * *") echo "time=21:00" >> "$GITHUB_OUTPUT" ;;
-            esac
-          fi
-
       - name: post to threads
         env:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
-        run: python scripts/post_threads_slot.py --time "${{ steps.slot.outputs.time }}"
+        run: |
+          if [ -n "${{ github.event.inputs.time_slot }}" ]; then
+            python scripts/post_threads_slot.py --time "${{ github.event.inputs.time_slot }}"
+          else
+            python scripts/post_threads_slot.py
+          fi
 
       - name: commit posted_log
         run: |
@@ -59,7 +48,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add posted_log/
           if ! git diff --cached --quiet; then
-            git commit -m "posted_log: ${{ steps.slot.outputs.time }}枠 投稿済み記録"
+            git commit -m "posted_log: 投稿済み記録更新"
             git pull --rebase origin master
             git push
           fi

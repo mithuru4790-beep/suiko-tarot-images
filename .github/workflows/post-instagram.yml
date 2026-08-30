@@ -2,10 +2,12 @@ name: Post to Instagram
 
 on:
   schedule:
-    # JST 9:23 = UTC 0:23
-    # きりのいい分(0分・10分など)はGitHub側で混み合い、遅延・欠落しやすいため
-    # あえて半端な分にずらしている(2026-08-30確定、Threads側と同じ対策)
-    - cron: "23 0 * * *"
+    # 巡回モード(2026-08-30後半確定): 単発cron1本だけだと、GitHub Actions側の高負荷で
+    # そのtickが間引かれた場合に、その日のInstagram投稿が丸ごと欠落してしまう
+    # (Threads側で同じ現象が2026-08-30に実際に発生したための対策)。
+    # post_instagram_today.py は既にposted_logで「投稿済みならスキップ」する作りなので、
+    # JST 9:08〜11:53の間、15分おきに複数回トリガーして自然にリトライさせる。
+    - cron: "8,23,38,53 0-2 * * *"
   workflow_dispatch: {}
 
 jobs:
