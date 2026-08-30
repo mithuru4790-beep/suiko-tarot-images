@@ -19,6 +19,8 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
+from posted_log import load as load_posted_log, mark_posted
+
 GRAPH_API_VERSION = "v21.0"
 GRAPH_API_BASE = f"https://graph.instagram.com/{GRAPH_API_VERSION}"
 JST = timezone(timedelta(hours=9))
@@ -78,6 +80,13 @@ def main():
         print(f"今日分のファイルがまだありません(image={image_path}, md={md_path})")
         sys.exit(0)  # エラー扱いにせず正常終了
 
+    # 二重投稿防止: 大幅な遅延実行や手動キャッチアップで同じ日に2回走っても
+    # 再投稿しないよう、先にposted_logを確認する
+    log = load_posted_log(today_jst)
+    if "instagram" in log:
+        print(f"本日分は投稿済みのためスキップします(media_id={log['instagram']})")
+        sys.exit(0)
+
     with open(md_path, encoding="utf-8") as f:
         text = f.read()
 
@@ -93,6 +102,7 @@ def main():
 
     media_id = post_image(image_url, caption, access_token, ig_id)
     print(f"Instagram投稿完了: media_id={media_id}")
+    mark_posted(today_jst, "instagram", media_id)
 
 
 if __name__ == "__main__":

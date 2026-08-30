@@ -20,6 +20,8 @@ on:
 jobs:
   post:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -50,3 +52,14 @@ jobs:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
         run: python scripts/post_threads_slot.py --time "${{ steps.slot.outputs.time }}"
+
+      - name: commit posted_log
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add posted_log/
+          if ! git diff --cached --quiet; then
+            git commit -m "posted_log: ${{ steps.slot.outputs.time }}枠 投稿済み記録"
+            git pull --rebase origin master
+            git push
+          fi
