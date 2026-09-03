@@ -73,7 +73,8 @@ def main():
         sys.exit(1)
 
     today_jst = datetime.now(JST).strftime("%Y-%m-%d")
-    image_path = os.path.join("today_card", f"{today_jst}.png")
+    # Instagramのコンテンツ公開APIはJPEGのみ(PNGは400)。PNG出力は廃止済み。
+    image_path = os.path.join("today_card", f"{today_jst}.jpg")
     md_path = os.path.join("threads_posts", f"{today_jst}.md")
 
     if not os.path.exists(image_path) or not os.path.exists(md_path):
